@@ -207,10 +207,10 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     for (let i = 0; i < bits.length; i++) {
       if (bits[i] === '0') {
         zeroCount++;
-        
+
         if (zeroCount === 8) {
           // Generar el patrón B8ZS
-          const pattern = lastOnePolarity === 1 
+          const pattern = lastOnePolarity === 1
             ? [0, 0, 0, -5, 5, 0, 5, -5]  // 000-+0+-
             : [0, 0, 0, 5, -5, 0, -5, 5]; // 000+-0-+
 
@@ -268,67 +268,61 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
 
     let lastOnePolarity = 1;
     let zeroCount = 0;
-    let pulsesSinceLastSubstitution = 0; // Contador de pulsos distintos de 0
+    let pulsesSinceLastSubstitution = 0;
 
     for (let i = 0; i < bits.length; i++) {
       if (bits[i] === '0') {
         zeroCount++;
         
         if (zeroCount === 4) {
-          // Determinar el patrón basado en la paridad de pulsos
-          const useB00V = pulsesSinceLastSubstitution % 2 === 0;
-          const pattern = useB00V
-            ? [lastOnePolarity * 5, 0, 0, -lastOnePolarity * 5] // B00V
-            : [0, 0, 0, -lastOnePolarity * 5];                  // 000V
-
-          // Aplicar el patrón
-          const startPos = i - 3;
-          for (let j = 0; j < 4; j++) {
-            data.push({
-              time: startPos + j,
-              voltage: pattern[j]
-            });
-            data.push({
-              time: startPos + j + 0.999,
-              voltage: pattern[j]
-            });
-          }
-
-          // Actualizar contadores
-          if (useB00V) {
-            pulsesSinceLastSubstitution = 2; // B y V cuentan como pulsos
+          // Retroceder para reemplazar los últimos 4 ceros
+          const startIndex = i - 3;
+          
+          // Determinar el patrón basado en la paridad
+          if (pulsesSinceLastSubstitution % 2 === 0) {
+            // B00V - número par de pulsos
+            data.push(
+              { time: startIndex, voltage: lastOnePolarity * 5 },     // B
+              { time: startIndex + 0.999, voltage: lastOnePolarity * 5 },
+              { time: startIndex + 1, voltage: 0 },                   // 0
+              { time: startIndex + 1.999, voltage: 0 },
+              { time: startIndex + 2, voltage: 0 },                   // 0
+              { time: startIndex + 2.999, voltage: 0 },
+              { time: startIndex + 3, voltage: lastOnePolarity * 5 }, // V
+              { time: startIndex + 3.999, voltage: lastOnePolarity * 5 }
+            );
+            pulsesSinceLastSubstitution = 2; // B y V cuentan
           } else {
-            pulsesSinceLastSubstitution = 1; // Solo V cuenta como pulso
+            // 000V - número impar de pulsos
+            data.push(
+              { time: startIndex, voltage: 0 },                       // 0
+              { time: startIndex + 0.999, voltage: 0 },
+              { time: startIndex + 1, voltage: 0 },                   // 0
+              { time: startIndex + 1.999, voltage: 0 },
+              { time: startIndex + 2, voltage: 0 },                   // 0
+              { time: startIndex + 2.999, voltage: 0 },
+              { time: startIndex + 3, voltage: lastOnePolarity * 5 }, // V
+              { time: startIndex + 3.999, voltage: lastOnePolarity * 5 }
+            );
+            pulsesSinceLastSubstitution = 1; // Solo V cuenta
           }
           
-          lastOnePolarity = pattern[3] > 0 ? 1 : -1;
+          i = startIndex + 3; // Actualizar el índice
           zeroCount = 0;
-          i = startPos + 3;
         } else {
-          // Cero normal
-          data.push({
-            time: i,
-            voltage: 0
-          });
-          data.push({
-            time: i + 0.999,
-            voltage: 0
-          });
+          data.push(
+            { time: i, voltage: 0 },
+            { time: i + 0.999, voltage: 0 }
+          );
         }
       } else {
-        // Para los unos, aplicar codificación AMI normal
-        const voltage = lastOnePolarity * 5;
-        data.push({
-          time: i,
-          voltage: voltage
-        });
-        data.push({
-          time: i + 0.999,
-          voltage: voltage
-        });
-        
+        // Para los unos, aplicar AMI normal
+        data.push(
+          { time: i, voltage: lastOnePolarity * 5 },
+          { time: i + 0.999, voltage: lastOnePolarity * 5 }
+        );
         lastOnePolarity *= -1;
-        pulsesSinceLastSubstitution++; // Incrementar contador de pulsos
+        pulsesSinceLastSubstitution++;
         zeroCount = 0;
       }
     }
@@ -338,25 +332,42 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
 
   const getData = () => {
     console.log('modulationType:', modulationType);
-    const data = generateBipolarAMIData(binarySequence);
-    console.log('generated data:', data);
+    console.log('binarySequence:', binarySequence);
+    
+    let data;
     switch (modulationType) {
       case 'NRZ-L':
-        return generateNRZLData(binarySequence);
+        data = generateNRZLData(binarySequence);
+        console.log('NRZ-L generated data:', data);
+        return data;
       case 'NRZ-I':
-        return generateNRZIData(binarySequence);
+        data = generateNRZIData(binarySequence);
+        console.log('NRZ-I generated data:', data);
+        return data;
       case 'RZ':
-        return generatePolarRZData(binarySequence);
+        data = generatePolarRZData(binarySequence);
+        console.log('RZ generated data:', data);
+        return data;
       case 'Manchester':
-        return generateManchesterData(binarySequence);
+        data = generateManchesterData(binarySequence);
+        console.log('Manchester generated data:', data);
+        return data;
       case 'Differential Manchester':
-        return generateDifferentialManchesterData(binarySequence);
+        data = generateDifferentialManchesterData(binarySequence);
+        console.log('Differential Manchester generated data:', data);
+        return data;
       case 'Bipolar-AMI':
-        return generateBipolarAMIData(binarySequence);
+        data = generateBipolarAMIData(binarySequence);
+        console.log('Bipolar-AMI generated data:', data);
+        return data;
       case 'B8ZS':
-        return generateB8ZSData(binarySequence);
+        data = generateB8ZSData(binarySequence);
+        console.log('B8ZS generated data:', data);
+        return data;
       case 'HDB3':
-        return generateHDB3Data(binarySequence);
+        data = generateHDB3Data(binarySequence);
+        console.log('HDB3 generated data:', data);
+        return data;
       default:
         return [];
     }
