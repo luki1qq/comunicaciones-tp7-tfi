@@ -26,19 +26,19 @@ export const modulationConfigs: ModulationConfig[] = [
     name: 'Manchester Diferencial',
     description: 'La polaridad de la transición al inicio del período de bit indica el dato'
   },
-  // {
-  //   id: 'Bipolar AMI',
-  //   name: 'Bipolar AMI',
-  //   description: 'Binary 1 is represented by a positive pulse, binary 0 by a negative pulse'
-  // },
-  // {
-  //   id: 'B8ZS',
-  //   name: 'B8ZS',
-  //   description: 'Bipolar with 8-zero substitution'
-  // },
-  // {
-  //   id: 'HDB3',
-  //   name: 'HDB3',
-  //   description: 'High-density bipolar 3-zero substitution'
-  // }
+  {
+    id: 'Bipolar-AMI',
+    name: 'Bipolar AMI',
+    description: 'Los unos alternan entre voltajes positivos y negativos, los ceros se mantienen en 0V'
+  },
+  {
+    id: 'B8ZS',
+    name: 'B8ZS',
+    description: 'Bipolar with 8-zero substitution'
+  },
+  {
+    id: 'HDB3',
+    name: 'HDB3 (High Density Bipolar 3-Zero)',
+    description: 'Sustituye secuencias de 4 ceros según la paridad de pulsos desde la última sustitución'
+  }
 ];

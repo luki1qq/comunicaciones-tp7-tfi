@@ -171,6 +171,8 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     let lastOnePolarity = 1; // Alternar entre 1 y -1 para los unos
 
     bits.forEach((bit, index) => {
+      // Si es un 1, usar la polaridad actual y alternarla para el próximo 1
+      // Si es un 0, usar voltaje 0
       const currentVoltage = bit === '1'
         ? (lastOnePolarity * voltage)
         : 0;
@@ -179,10 +181,12 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
         lastOnePolarity *= -1; // Invertir polaridad para el próximo uno
       }
 
+      // Punto inicial del bit
       data.push({
         time: index,
         voltage: currentVoltage
       });
+      // Punto final del bit (para mantener el nivel)
       data.push({
         time: index + 0.999,
         voltage: currentVoltage
@@ -201,42 +205,57 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     let zeroCount = 0;
 
     for (let i = 0; i < bits.length; i++) {
-      let currentVoltage = 0;
-
-      // Detectar secuencia de 8 ceros
       if (bits[i] === '0') {
         zeroCount++;
+        
         if (zeroCount === 8) {
-          // Aplicar patrón B8ZS: 000VB0VB
-          const pattern = [0, 0, 0, lastOnePolarity, -lastOnePolarity, 0, lastOnePolarity, -lastOnePolarity];
+          // Generar el patrón B8ZS
+          const pattern = lastOnePolarity === 1 
+            ? [0, 0, 0, -5, 5, 0, 5, -5]  // 000-+0+-
+            : [0, 0, 0, 5, -5, 0, -5, 5]; // 000+-0-+
+
+          // Retroceder 7 posiciones para escribir el patrón completo
+          const startPos = i - 7;
           for (let j = 0; j < 8; j++) {
             data.push({
-              time: i - 7 + j,
-              voltage: pattern[j] * voltage
+              time: startPos + j,
+              voltage: pattern[j]
             });
             data.push({
-              time: i - 7 + j + 0.999,
-              voltage: pattern[j] * voltage
+              time: startPos + j + 0.999,
+              voltage: pattern[j]
             });
           }
+
+          // Actualizar la última polaridad y resetear el contador
+          lastOnePolarity = pattern[7] > 0 ? 1 : -1;
           zeroCount = 0;
-          i++; // Saltar al siguiente bit después del patrón
-          continue;
+          i = startPos + 7; // Actualizar i a la última posición del patrón
+        } else {
+          // Cero normal
+          data.push({
+            time: i,
+            voltage: 0
+          });
+          data.push({
+            time: i + 0.999,
+            voltage: 0
+          });
         }
       } else {
-        currentVoltage = lastOnePolarity * voltage;
+        // Para los unos, aplicar AMI
+        const voltage = lastOnePolarity * 5;
+        data.push({
+          time: i,
+          voltage: voltage
+        });
+        data.push({
+          time: i + 0.999,
+          voltage: voltage
+        });
         lastOnePolarity *= -1;
         zeroCount = 0;
       }
-
-      data.push({
-        time: i,
-        voltage: currentVoltage
-      });
-      data.push({
-        time: i + 0.999,
-        voltage: currentVoltage
-      });
     }
 
     return data;
@@ -249,55 +268,78 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
 
     let lastOnePolarity = 1;
     let zeroCount = 0;
-    let onesCount = 0;
+    let pulsesSinceLastSubstitution = 0; // Contador de pulsos distintos de 0
 
     for (let i = 0; i < bits.length; i++) {
-      let currentVoltage = 0;
-
       if (bits[i] === '0') {
         zeroCount++;
+        
         if (zeroCount === 4) {
-          // Determinar si el número de pulsos desde el último código de sustitución es par o impar
-          const pattern = onesCount % 2 === 0
-            ? [lastOnePolarity, 0, 0, lastOnePolarity] // B00V
-            : [0, 0, 0, lastOnePolarity];              // 000V
+          // Determinar el patrón basado en la paridad de pulsos
+          const useB00V = pulsesSinceLastSubstitution % 2 === 0;
+          const pattern = useB00V
+            ? [lastOnePolarity * 5, 0, 0, -lastOnePolarity * 5] // B00V
+            : [0, 0, 0, -lastOnePolarity * 5];                  // 000V
 
+          // Aplicar el patrón
+          const startPos = i - 3;
           for (let j = 0; j < 4; j++) {
             data.push({
-              time: i - 3 + j,
-              voltage: pattern[j] * voltage
+              time: startPos + j,
+              voltage: pattern[j]
             });
             data.push({
-              time: i - 3 + j + 0.999,
-              voltage: pattern[j] * voltage
+              time: startPos + j + 0.999,
+              voltage: pattern[j]
             });
           }
+
+          // Actualizar contadores
+          if (useB00V) {
+            pulsesSinceLastSubstitution = 2; // B y V cuentan como pulsos
+          } else {
+            pulsesSinceLastSubstitution = 1; // Solo V cuenta como pulso
+          }
+          
+          lastOnePolarity = pattern[3] > 0 ? 1 : -1;
           zeroCount = 0;
-          onesCount = 1; // El código de sustitución cuenta como un pulso
-          i++; // Saltar al siguiente bit después del patrón
-          continue;
+          i = startPos + 3;
+        } else {
+          // Cero normal
+          data.push({
+            time: i,
+            voltage: 0
+          });
+          data.push({
+            time: i + 0.999,
+            voltage: 0
+          });
         }
       } else {
-        currentVoltage = lastOnePolarity * voltage;
+        // Para los unos, aplicar codificación AMI normal
+        const voltage = lastOnePolarity * 5;
+        data.push({
+          time: i,
+          voltage: voltage
+        });
+        data.push({
+          time: i + 0.999,
+          voltage: voltage
+        });
+        
         lastOnePolarity *= -1;
+        pulsesSinceLastSubstitution++; // Incrementar contador de pulsos
         zeroCount = 0;
-        onesCount++;
       }
-
-      data.push({
-        time: i,
-        voltage: currentVoltage
-      });
-      data.push({
-        time: i + 0.999,
-        voltage: currentVoltage
-      });
     }
 
     return data;
   };
 
   const getData = () => {
+    console.log('modulationType:', modulationType);
+    const data = generateBipolarAMIData(binarySequence);
+    console.log('generated data:', data);
     switch (modulationType) {
       case 'NRZ-L':
         return generateNRZLData(binarySequence);
@@ -309,12 +351,12 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
         return generateManchesterData(binarySequence);
       case 'Differential Manchester':
         return generateDifferentialManchesterData(binarySequence);
-      // case 'Bipolar-AMI':
-      //   return generateBipolarAMIData(binarySequence);
-      // case 'B8ZS':
-      //   return generateB8ZSData(binarySequence);
-      // case 'HDB3':
-      //   return generateHDB3Data(binarySequence);
+      case 'Bipolar-AMI':
+        return generateBipolarAMIData(binarySequence);
+      case 'B8ZS':
+        return generateB8ZSData(binarySequence);
+      case 'HDB3':
+        return generateHDB3Data(binarySequence);
       default:
         return [];
     }
