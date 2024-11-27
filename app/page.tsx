@@ -12,7 +12,7 @@ import ModulationSelector from "@/components/ModulationSelector";
 
 export default function Home() {
   const [binaryInput, setBinaryInput] = useState("1000111");
-  const [voltage, setVoltage] = useState("");
+  const [voltage, setVoltage] = useState<number>(5);
   const [error, setError] = useState("");
   const [modulationType, setModulationType] = useState<ModulationType>("NRZ-L");
 
@@ -44,7 +44,10 @@ export default function Home() {
   const handleVoltageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseFloat(e.target.value);
     
-
+    if (isNaN(value)) {
+      setError("Por favor ingrese un número válido");
+      return;
+    }
 
     if (value <= 0) {
       setError("El voltaje debe ser mayor que 0");
