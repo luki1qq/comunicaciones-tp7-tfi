@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -13,7 +12,7 @@ import ModulationSelector from "@/components/ModulationSelector";
 
 export default function Home() {
   const [binaryInput, setBinaryInput] = useState("1000111");
-  const [voltage, setVoltage] = useState(5);
+  const [voltage, setVoltage] = useState("");
   const [error, setError] = useState("");
   const [modulationType, setModulationType] = useState<ModulationType>("NRZ-L");
 
@@ -42,8 +41,23 @@ export default function Home() {
     setBinaryInput(value);
   };
 
-  const toggleVoltage = () => {
-    setVoltage(voltage === 5 ? 3 : 5);
+  const handleVoltageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    
+
+
+    if (value <= 0) {
+      setError("El voltaje debe ser mayor que 0");
+      return;
+    }
+
+    if (value > 10) {
+      setError("El voltaje máximo permitido es 10V");
+      return;
+    }
+
+    setError("");
+    setVoltage(value);
   };
 
   return (
@@ -76,16 +90,22 @@ export default function Home() {
                       maxLength={16}
                     />
                   </div>
-                  {/* <div className="flex items-center space-x-2">
-                    <Switch
-                      id="voltage-mode"
-                      checked={voltage === 3}
-                      onCheckedChange={toggleVoltage}
-                    />
-                    <Label htmlFor="voltage-mode">
-                      {voltage}V Mode
+                  <div className="flex-1">
+                    <Label htmlFor="voltageInput" className="text-sm font-medium mb-2 block">
+                      Voltaje (V)
                     </Label>
-                  </div> */}
+                    <Input
+                      id="voltageInput"
+                      type="number"
+                      placeholder="Ingresa el voltaje (1-10V)"
+                      value={voltage}
+                      onChange={handleVoltageChange}
+                      className="font-mono"
+                      min={1}
+                      max={10}
+                      step={0.5}
+                    />
+                  </div>
                 </div>
 
                 <div>

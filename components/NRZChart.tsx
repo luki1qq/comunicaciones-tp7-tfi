@@ -211,8 +211,8 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
         if (zeroCount === 8) {
           // Generar el patrón B8ZS
           const pattern = lastOnePolarity === 1
-            ? [0, 0, 0, -5, 5, 0, 5, -5]  // 000-+0+-
-            : [0, 0, 0, 5, -5, 0, -5, 5]; // 000+-0-+
+            ? [0, 0, 0, -voltage, voltage, 0, voltage, -voltage]  // 000-+0+-
+            : [0, 0, 0, voltage, -voltage, 0, -voltage, voltage]; // 000+-0-+
 
           // Retroceder 7 posiciones para escribir el patrón completo
           const startPos = i - 7;
@@ -281,12 +281,12 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     // Función helper para aplicar el patrón HDB3
     const applyHDB3Pattern = (startTime: number, isEvenPulses: boolean) => {
       // Eliminar los últimos 4 puntos (8 entradas) que ya se dibujaron
+      console.log('apply hdb3?');
       data.splice(-6);
-      // alert(lastOnePolarity);
       // Si es par usamos B00V, si es impar usamos 000V
       const pattern = isEvenPulses 
-        ? [lastOnePolarity * 5, 0, 0, lastOnePolarity * 5]  // B00V
-        : [0, 0, 0, -lastOnePolarity * 5];                   // 000V
+        ? [lastOnePolarity * voltage, 0, 0, lastOnePolarity * voltage]  // B00V
+        : [0, 0, 0, -lastOnePolarity * voltage];                   // 000V
   
       
 
@@ -301,12 +301,16 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
       
       // Importante: Invertir la polaridad después del último pulso V
       lastOnePolarity *= -1;  // Esto asegura que el siguiente 1 tenga la polaridad correcta
+
+      // Si aplicamos el patrón, eliminamos el contador de ceros consecutivos
+      zeroCount = 0;
+      
     };
 
     for (let i = 0; i < bits.length; i++) {
       if (bits[i] === '1') {
         // Para los unos, aplicar AMI normal
-        addPoint(i, lastOnePolarity * 5);
+        addPoint(i, lastOnePolarity * voltage);
         lastOnePolarity *= -1;
         totalPulses++;  // Incrementar el contador total de pulsos
         zeroCount = 0;
@@ -332,8 +336,8 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
   };
 
   const getData = () => {
-    console.log('modulationType:', modulationType);
-    console.log('binarySequence:', binarySequence);
+    // console.log('modulationType:', modulationType);
+    // console.log('binarySequence:', binarySequence);
     
     let data;
     switch (modulationType) {
