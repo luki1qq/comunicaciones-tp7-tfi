@@ -36,9 +36,9 @@ export const modulationConfigs: ModulationConfig[] = [
     name: 'B8ZS',
     description: 'Bipolar with 8-zero substitution'
   },
-  // {
-  //   id: 'HDB3',
-  //   name: 'HDB3 (High Density Bipolar 3-Zero)',
-  //   description: 'Sustituye secuencias de 4 ceros según la paridad de pulsos desde la última sustitución'
-  // }
+  {
+    id: 'HDB3',
+    name: 'HDB3 (High Density Bipolar 3-Zero)',
+    description: 'Sustituye secuencias de 4 ceros según la paridad de pulsos desde la última sustitución'
+  }
 ];

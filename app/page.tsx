@@ -33,6 +33,11 @@ export default function Home() {
       return;
     }
 
+    if (value.length > 16) {
+      setError("Maximum sequence length is 16 bits");
+      return;
+    }
+
     setError("");
     setBinaryInput(value);
   };
@@ -64,10 +69,11 @@ export default function Home() {
                     </Label>
                     <Input
                       id="binaryInput"
-                      placeholder="Ingresa una secuencia binaria (ej: 1000111)"
+                      placeholder="Ingresa una secuencia binaria (máx. 16 bits)"
                       value={binaryInput}
                       onChange={(e) => handleInputChange(e.target.value)}
                       className="font-mono"
+                      maxLength={16}
                     />
                   </div>
                   {/* <div className="flex items-center space-x-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid } from "recharts";
+import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, ReferenceLine, CartesianGrid, Text, Label } from "recharts";
 import { ModulationType } from "@/types/modulation";
 
 interface NRZChartProps {
@@ -207,7 +207,7 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     for (let i = 0; i < bits.length; i++) {
       if (bits[i] === '0') {
         zeroCount++;
-
+        console.log('zeroCount:', zeroCount);
         if (zeroCount === 8) {
           // Generar el patrón B8ZS
           const pattern = lastOnePolarity === 1
@@ -266,64 +266,65 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     const data: { time: number; voltage: number }[] = [];
     const bits = sequence.split("");
 
-    let lastOnePolarity = 1;
-    let zeroCount = 0;
-    let pulsesSinceLastSubstitution = 0;
+    let lastOnePolarity = 1;                    // Controla la polaridad de los pulsos
+    let zeroCount = 0;                          // Contador de ceros consecutivos
+    let totalPulses = 0;                        // Contador total de pulsos
+
+    // Función helper para agregar puntos al gráfico
+    const addPoint = (time: number, voltage: number) => {
+      data.push(
+        { time: time, voltage: voltage },
+        { time: time + 0.999, voltage: voltage }
+      );
+    };
+
+    // Función helper para aplicar el patrón HDB3
+    const applyHDB3Pattern = (startTime: number, isEvenPulses: boolean) => {
+      // Eliminar los últimos 4 puntos (8 entradas) que ya se dibujaron
+      data.splice(-6);
+      // alert(lastOnePolarity);
+      // Si es par usamos B00V, si es impar usamos 000V
+      const pattern = isEvenPulses 
+        ? [lastOnePolarity * 5, 0, 0, lastOnePolarity * 5]  // B00V
+        : [0, 0, 0, -lastOnePolarity * 5];                   // 000V
+  
+      
+
+      console.log('pattern:', pattern);
+      // Aplicar el patrón en la posición correcta
+      for (let j = 0; j < 4; j++) {
+        addPoint(startTime + j, pattern[j]);
+      }
+
+      // Actualizar el contador total de pulsos según el patrón usado
+      totalPulses += isEvenPulses ? 2 : 1;  // B00V añade 2 pulsos, 000V añade 1
+      
+      // Importante: Invertir la polaridad después del último pulso V
+      lastOnePolarity *= -1;  // Esto asegura que el siguiente 1 tenga la polaridad correcta
+    };
 
     for (let i = 0; i < bits.length; i++) {
-      if (bits[i] === '0') {
+      if (bits[i] === '1') {
+        // Para los unos, aplicar AMI normal
+        addPoint(i, lastOnePolarity * 5);
+        lastOnePolarity *= -1;
+        totalPulses++;  // Incrementar el contador total de pulsos
+        zeroCount = 0;
+      } else {
+        // Para los ceros
         zeroCount++;
         
         if (zeroCount === 4) {
-          // Retroceder para reemplazar los últimos 4 ceros
-          const startIndex = i - 3;
-          
-          // Determinar el patrón basado en la paridad
-          if (pulsesSinceLastSubstitution % 2 === 0) {
-            // B00V - número par de pulsos
-            data.push(
-              { time: startIndex, voltage: lastOnePolarity * 5 },     // B
-              { time: startIndex + 0.999, voltage: lastOnePolarity * 5 },
-              { time: startIndex + 1, voltage: 0 },                   // 0
-              { time: startIndex + 1.999, voltage: 0 },
-              { time: startIndex + 2, voltage: 0 },                   // 0
-              { time: startIndex + 2.999, voltage: 0 },
-              { time: startIndex + 3, voltage: lastOnePolarity * 5 }, // V
-              { time: startIndex + 3.999, voltage: lastOnePolarity * 5 }
-            );
-            pulsesSinceLastSubstitution = 2; // B y V cuentan
-          } else {
-            // 000V - número impar de pulsos
-            data.push(
-              { time: startIndex, voltage: 0 },                       // 0
-              { time: startIndex + 0.999, voltage: 0 },
-              { time: startIndex + 1, voltage: 0 },                   // 0
-              { time: startIndex + 1.999, voltage: 0 },
-              { time: startIndex + 2, voltage: 0 },                   // 0
-              { time: startIndex + 2.999, voltage: 0 },
-              { time: startIndex + 3, voltage: lastOnePolarity * 5 }, // V
-              { time: startIndex + 3.999, voltage: lastOnePolarity * 5 }
-            );
-            pulsesSinceLastSubstitution = 1; // Solo V cuenta
-          }
-          
-          i = startIndex + 3; // Actualizar el índice
+          console.log('zero count:', zeroCount);
+          // Determinar si usamos B00V o 000V basado en la paridad de pulsos
+          console.log('total pulses:', totalPulses);
+          const isEvenPulses = totalPulses % 2 === 0;
+          applyHDB3Pattern(i - 3, isEvenPulses);
           zeroCount = 0;
         } else {
-          data.push(
-            { time: i, voltage: 0 },
-            { time: i + 0.999, voltage: 0 }
-          );
+          // Cero normal
+          addPoint(i, 0);
         }
-      } else {
-        // Para los unos, aplicar AMI normal
-        data.push(
-          { time: i, voltage: lastOnePolarity * 5 },
-          { time: i + 0.999, voltage: lastOnePolarity * 5 }
-        );
-        lastOnePolarity *= -1;
-        pulsesSinceLastSubstitution++;
-        zeroCount = 0;
       }
     }
 
@@ -397,29 +398,54 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     <ResponsiveContainer width="100%" height="100%">
       <LineChart
         data={data}
-        margin={{ top: 20, right: 30, left: 30, bottom: 20 }}
+        margin={{ top: 30, right: 30, left: 30, bottom: 20 }}
       >
         <XAxis
           dataKey="time"
           type="number"
           domain={[0, binarySequence.length - 0.001]}
-          tickCount={binarySequence.length + 1}
-        />
-        <YAxis
-          domain={getVoltageRange()}
-          ticks={[-voltage, 0, voltage]}
-          label={{ value: "Voltaje (V)", angle: -90, position: "insideLeft" }}
-        />
-        <ReferenceLine
-          y={0}
-          stroke="gray"
-          strokeDasharray="3 3"
-          ifOverflow="extendDomain"
-        />
+          tickCount={binarySequence.length}
+          ticks={Array.from({ length: binarySequence.length }, (_, i) => i)}
+          tick={(props) => {
+            const { x, y, payload } = props;
+            const bitIndex = payload.value;
+            const bit = binarySequence[bitIndex];
+            
+            // Calculamos el ajuste basado en la longitud de la secuencia
+            const adjustment = Math.floor(binarySequence.length / 3) * -15; // -5 pixels por cada 3 bits
+            const baseOffset = 100; // Offset base hacia la derecha
+            
+            return (
+              <g transform={`translate(${x + baseOffset + adjustment},${y - 25})`}>
+                <text
+                  x={0}
+                  y={0}
+                  dy={16}
+                  textAnchor="middle"
+                  fill="#666666"
+                  style={{
+                    fontSize: '30px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {bit}
+                </text>
+              </g>
+            );
+          }}
+        >
+          <Label value="Tiempo (bits)" position="bottom" offset={10} />
+        </XAxis>
+
+        <YAxis domain={getVoltageRange()} ticks={[-voltage, 0, voltage]}>
+          <Label value="Voltaje (V)" angle={-90} position="insideLeft" />
+        </YAxis>
+
+        <ReferenceLine y={0} stroke="gray" strokeDasharray="3 3" />
         <CartesianGrid strokeDasharray="3 3" />
         <Tooltip
           formatter={(value: number) => [`${value}V`, "Voltaje"]}
-          labelFormatter={(label: number) => `Bit ${Math.floor(label)}`}
+          labelFormatter={(label: number) => `Tiempo ${Math.floor(label)}`}
         />
         <Line
           type="linear"
