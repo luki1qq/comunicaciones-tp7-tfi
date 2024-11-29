@@ -209,6 +209,9 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
         zeroCount++;
         console.log('zeroCount:', zeroCount);
         if (zeroCount === 8) {
+          // Eliminar los últimos 7 puntos de datos para el patrón B8ZS
+          data.splice(data.length - 14, 14);
+
           // Generar el patrón B8ZS
           const pattern = lastOnePolarity === 1
             ? [0, 0, 0, -voltage, voltage, 0, voltage, -voltage]  // 000-+0+-
@@ -265,69 +268,54 @@ export default function NRZChart({ binarySequence, voltage, modulationType }: NR
     if (!sequence) return [];
     const data: { time: number; voltage: number }[] = [];
     const bits = sequence.split("");
-
-    let lastOnePolarity = 1;                    // Controla la polaridad de los pulsos
-    let zeroCount = 0;                          // Contador de ceros consecutivos
-    let totalPulses = 0;                        // Contador total de pulsos
-
-    // Función helper para agregar puntos al gráfico
-    const addPoint = (time: number, voltage: number) => {
+    
+    let lastPolarity = -voltage;
+    let pulseCount = 0;
+    let zeroCount = 0;
+    
+    // Helper para agregar puntos al gráfico
+    const addPulse = (time: number, value: number) => {
       data.push(
-        { time: time, voltage: voltage },
-        { time: time + 0.999, voltage: voltage }
+        { time: time, voltage: value },
+        { time: time + 0.999, voltage: value }
       );
-    };
-
-    // Función helper para aplicar el patrón HDB3
-    const applyHDB3Pattern = (startTime: number, isEvenPulses: boolean) => {
-      // Eliminar los últimos 4 puntos (8 entradas) que ya se dibujaron
-      console.log('apply hdb3?');
-      data.splice(-6);
-      // Si es par usamos B00V, si es impar usamos 000V
-      const pattern = isEvenPulses 
-        ? [lastOnePolarity * voltage, 0, 0, lastOnePolarity * voltage]  // B00V
-        : [0, 0, 0, -lastOnePolarity * voltage];                   // 000V
-  
-      
-
-      console.log('pattern:', pattern);
-      // Aplicar el patrón en la posición correcta
-      for (let j = 0; j < 4; j++) {
-        addPoint(startTime + j, pattern[j]);
-      }
-
-      // Actualizar el contador total de pulsos según el patrón usado
-      totalPulses += isEvenPulses ? 2 : 1;  // B00V añade 2 pulsos, 000V añade 1
-      
-      // Importante: Invertir la polaridad después del último pulso V
-      lastOnePolarity *= -1;  // Esto asegura que el siguiente 1 tenga la polaridad correcta
-
-      // Si aplicamos el patrón, eliminamos el contador de ceros consecutivos
-      zeroCount = 0;
-      
     };
 
     for (let i = 0; i < bits.length; i++) {
       if (bits[i] === '1') {
-        // Para los unos, aplicar AMI normal
-        addPoint(i, lastOnePolarity * voltage);
-        lastOnePolarity *= -1;
-        totalPulses++;  // Incrementar el contador total de pulsos
+        lastPolarity = -lastPolarity;
+        addPulse(i, lastPolarity);
+        pulseCount++;
         zeroCount = 0;
       } else {
-        // Para los ceros
         zeroCount++;
         
         if (zeroCount === 4) {
-          console.log('zero count:', zeroCount);
-          // Determinar si usamos B00V o 000V basado en la paridad de pulsos
-          console.log('total pulses:', totalPulses);
-          const isEvenPulses = totalPulses % 2 === 0;
-          applyHDB3Pattern(i - 3, isEvenPulses);
+          // Eliminar los últimos 4 pulsos
+          data.splice(data.length - 6, 6);
+          
+          if (pulseCount % 2 === 0) {
+            // Patrón B00V
+            const polarityBV = lastPolarity > 0 ? -voltage : voltage;
+            addPulse(i - 3, polarityBV);    // B
+            addPulse(i - 2, 0);             // 0
+            addPulse(i - 1, 0);             // 0
+            addPulse(i, polarityBV);        // V
+            lastPolarity = polarityBV;
+          } else {
+            // Patrón 000V
+            const polarityV = lastPolarity > 0 ? voltage : -voltage;
+            addPulse(i - 3, 0);             // 0
+            addPulse(i - 2, 0);             // 0
+            addPulse(i - 1, 0);             // 0
+            addPulse(i, polarityV);         // V
+            lastPolarity = polarityV;
+          }
+          
+          pulseCount = 0;
           zeroCount = 0;
         } else {
-          // Cero normal
-          addPoint(i, 0);
+          addPulse(i, 0);
         }
       }
     }

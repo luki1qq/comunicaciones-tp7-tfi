@@ -31,7 +31,7 @@ export default function ModulationSelector({
     <div className="flex items-center gap-2">
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className="w-[280px]">
-          <SelectValue placeholder="Select modulation type" />
+          <SelectValue placeholder="Seleccionar tipo de modulación" />
         </SelectTrigger>
         <SelectContent>
           {modulationConfigs.map((config) => (
@@ -52,6 +52,14 @@ export default function ModulationSelector({
             <p className="text-sm text-muted-foreground">
               {selectedConfig?.description}
             </p>
+            <div className="mt-4">
+              <h5 className="text-sm font-semibold mb-2">Reglas de codificación:</h5>
+              <ul className="text-sm text-muted-foreground list-disc pl-4">
+                {selectedConfig?.rules.map((rule, index) => (
+                  <li key={index}>{rule}</li>
+                ))}
+              </ul>
+            </div>
           </div>
         </HoverCardContent>
       </HoverCard>
